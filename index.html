@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Arcade</title>
+
+  <!-- ============================================================
+       STYLES
+       ============================================================ -->
+  <style>
+    /* ---------- Reset & Base ---------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --border:    #334155;
+      --text:      #f1f5f9;
+      --muted:     #94a3b8;
+      --accent:    #38bdf8;
+      --accent-dk: #0284c7;
+      --win:       #4ade80;
+      --lose:      #f87171;
+      --draw:      #fbbf24;
+      --x-color:   #f87171;
+      --o-color:   #38bdf8;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      width: 100%;
+      text-align: center;
+      padding: 2rem 1rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
+
+    /* ---------- Nav Tabs ---------- */
+    nav {
+      display: flex;
+      gap: 0.5rem;
+      margin: 1.5rem 1rem 0;
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1.4rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn.active,
+    .tab-btn:hover {
+      background: var(--accent);
+      color: #0f172a;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ---------- Game Sections ---------- */
+    .game-section {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    .game-section.active { display: block; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--accent);
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-block;
+      padding: 0.55rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0f172a;
+    }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-sm { padding: 0.35rem 0.85rem; font-size: 0.8rem; }
+
+    /* ============================================================
+       TIC TAC TOE
+       ============================================================ */
+
+    /* ---------- DIFFICULTY SYSTEM ---------- */
+    .difficulty-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+
+    .diff-btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 0.5rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .diff-btn.selected {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .diff-label {
+      font-size: 0.7rem;
+      display: block;
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    /* ---------- TIC TAC TOE BOARD ---------- */
+    #ttt-status {
+      text-align: center;
+      min-height: 1.6rem;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    #ttt-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      width: 100%;
+      max-width: 280px;
+      margin: 0 auto 1.2rem;
+      /* "drawn lines" look: only inner borders form the cross */
+      position: relative;
+    }
+
+    .ttt-cell {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Courier New', monospace;
+      font-size: 2.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text);
+      position: relative;
+      transition: background 0.1s;
+      user-select: none;
+    }
+
+    .ttt-cell:hover:not([disabled]) { background: rgba(56,189,248,0.07); }
+
+    /* Inner grid lines only (the "cross") */
+    .ttt-cell:nth-child(1),
+    .ttt-cell:nth-child(2),
+    .ttt-cell:nth-child(3) { border-bottom: 2px solid var(--border); }
+
+    .ttt-cell:nth-child(4),
+    .ttt-cell:nth-child(5),
+    .ttt-cell:nth-child(6) { border-bottom: 2px solid var(--border); }
+
+    .ttt-cell:nth-child(1),
+    .ttt-cell:nth-child(4),
+    .ttt-cell:nth-child(7) { border-right: 2px solid var(--border); }
+
+    .ttt-cell:nth-child(2),
+    .ttt-cell:nth-child(5),
+    .ttt-cell:nth-child(8) { border-right: 2px solid var(--border); }
+
+    /* X and O colors */
+    .ttt-cell.x { color: var(--x-color); }
+    .ttt-cell.o { color: var(--o-color); }
+
+    /* Winning cells highlight */
+    .ttt-cell.win-cell { background: rgba(74,222,128,0.12); }
+
+    #ttt-reset {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Scoreboard */
+    .score-row {
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+      margin-top: 0.75rem;
+    }
+
+    .score-item span:first-child {
+      display: block;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .score-item span:last-child {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .score-item.player span:first-child { color: var(--x-color); }
+    .score-item.computer span:first-child { color: var(--o-color); }
+    .score-item.draws span:first-child { color: var(--draw); }
+
+    /* ============================================================
+       GAME 2 — GUESS THE NUMBER
+       ============================================================ */
+    #guess-status {
+      text-align: center;
+      min-height: 1.6rem;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .guess-feedback {
+      text-align: center;
+      min-height: 2.5rem;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .guess-history {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: center;
+      min-height: 2rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .guess-tag {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .guess-tag.too-low  { background: rgba(251,191,36,0.15); color: var(--draw); border: 1px solid var(--draw); }
+    .guess-tag.too-high { background: rgba(248,113,113,0.15); color: var(--lose); border: 1px solid var(--lose); }
+    .guess-tag.correct  { background: rgba(74,222,128,0.15); color: var(--win); border: 1px solid var(--win); }
+
+    .guess-input-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 0.8rem;
+    }
+
+    #guess-input {
+      width: 100px;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+      text-align: center;
+      outline: none;
+    }
+
+    #guess-input:focus { border-color: var(--accent); }
+
+    .guess-range-label {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Range selector for G2 */
+    .range-row {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .range-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .range-btn.selected {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 400px) {
+      header h1 { font-size: 1.4rem; }
+      .ttt-cell  { font-size: 1.7rem; }
+      #ttt-board { max-width: 220px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header>
+    <h1>🕹 Mini Arcade</h1>
+    <p>Two games, zero installs — works in any browser</p>
+  </header>
+
+  <!-- ============================================================
+       NAV TABS
+       ============================================================ -->
+  <nav>
+    <button class="tab-btn active" onclick="switchTab('ttt')">Tic Tac Toe</button>
+    <button class="tab-btn"       onclick="switchTab('g2')">Guess the Number</button>
+  </nav>
+
+  <!-- ============================================================
+       TIC TAC TOE SECTION
+       ============================================================ -->
+  <section id="tab-ttt" class="game-section active">
+
+    <!-- DIFFICULTY SYSTEM -->
+    <div class="card">
+      <h2>⚙️ Difficulty</h2>
+      <div class="difficulty-row">
+        <button class="diff-btn selected" data-level="1" onclick="setDifficulty(1)">
+          Level 1<span class="diff-label">Random moves</span>
+        </button>
+        <button class="diff-btn" data-level="2" onclick="setDifficulty(2)">
+          Level 2<span class="diff-label">Blocks & attacks</span>
+        </button>
+        <button class="diff-btn" data-level="3" onclick="setDifficulty(3)">
+          Level 3<span class="diff-label">Unbeatable AI</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- TIC TAC TOE BOARD -->
+    <div class="card">
+      <div id="ttt-status">Your turn (X)</div>
+
+      <div id="ttt-board">
+        <button class="ttt-cell" id="c0" onclick="playerMove(0)"></button>
+        <button class="ttt-cell" id="c1" onclick="playerMove(1)"></button>
+        <button class="ttt-cell" id="c2" onclick="playerMove(2)"></button>
+        <button class="ttt-cell" id="c3" onclick="playerMove(3)"></button>
+        <button class="ttt-cell" id="c4" onclick="playerMove(4)"></button>
+        <button class="ttt-cell" id="c5" onclick="playerMove(5)"></button>
+        <button class="ttt-cell" id="c6" onclick="playerMove(6)"></button>
+        <button class="ttt-cell" id="c7" onclick="playerMove(7)"></button>
+        <button class="ttt-cell" id="c8" onclick="playerMove(8)"></button>
+      </div>
+
+      <button class="btn btn-primary" id="ttt-reset" onclick="resetTTT()">New Game</button>
+
+      <!-- Scoreboard -->
+      <div class="score-row">
+        <div class="score-item player">
+          <span id="score-player">0</span>
+          <span>You (X)</span>
+        </div>
+        <div class="score-item draws">
+          <span id="score-draws">0</span>
+          <span>Draws</span>
+        </div>
+        <div class="score-item computer">
+          <span id="score-cpu">0</span>
+          <span>CPU (O)</span>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============================================================
+       GAME 2 — GUESS THE NUMBER SECTION
+       ============================================================ -->
+  <section id="tab-g2" class="game-section">
+
+    <div class="card">
+      <h2>🎲 Range</h2>
+      <div class="range-row">
+        <button class="range-btn selected" data-max="10"  onclick="setRange(10)">1 – 10</button>
+        <button class="range-btn"          data-max="50"  onclick="setRange(50)">1 – 50</button>
+        <button class="range-btn"          data-max="100" onclick="setRange(100)">1 – 100</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔢 Guess the Number</h2>
+
+      <div id="guess-status">I'm thinking of a number…</div>
+
+      <p class="guess-range-label" id="guess-range-label">Between 1 and 10</p>
+
+      <div class="guess-input-row">
+        <input  id="guess-input" type="number" min="1" max="10" placeholder="?" />
+        <button class="btn btn-primary" onclick="submitGuess()">Guess</button>
+      </div>
+
+      <div class="guess-feedback" id="guess-feedback"></div>
+
+      <div class="guess-history" id="guess-history"></div>
+
+      <button class="btn btn-secondary btn-sm" style="display:block; margin:0 auto;" onclick="resetGuess()">New Number</button>
+    </div>
+
+  </section>
+
+  <!-- ============================================================
+       SCRIPTS
+       ============================================================ -->
+  <script>
+
+    /* ============================================================
+       TAB SWITCHING
+       ============================================================ */
+    function switchTab(id) {
+      document.querySelectorAll('.game-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    /* ============================================================
+       TIC TAC TOE
+       ============================================================ */
+
+    // --- State ---
+    let tttBoard    = Array(9).fill(null); // null | 'X' | 'O'
+    let tttActive   = true;                // false when game over
+    let difficulty  = 1;                   // 1 | 2 | 3
+    let scores      = { player: 0, cpu: 0, draws: 0 };
+
+    // All possible winning lines (index triplets)
+    const WIN_LINES = [
+      [0,1,2],[3,4,5],[6,7,8], // rows
+      [0,3,6],[1,4,7],[2,5,8], // cols
+      [0,4,8],[2,4,6]          // diagonals
+    ];
+
+    // --- DIFFICULTY SYSTEM ---
+    function setDifficulty(level) {
+      difficulty = level;
+      document.querySelectorAll('.diff-btn').forEach(b => {
+        b.classList.toggle('selected', parseInt(b.dataset.level) === level);
+      });
+      resetTTT();
+    }
+
+    // --- Player move ---
+    function playerMove(index) {
+      if (!tttActive || tttBoard[index]) return;
+      makeMove(index, 'X');
+      if (!tttActive) return;
+      // Delay computer move slightly so it feels natural
+      setTimeout(computerMove, 320);
+    }
+
+    // --- Computer move (dispatches by difficulty) ---
+    function computerMove() {
+      if (!tttActive) return;
+      let index;
+
+      if (difficulty === 1) {
+        index = easyMove();
+      } else if (difficulty === 2) {
+        index = mediumMove();
+      } else {
+        index = hardMove();
+      }
+
+      if (index !== null && index !== undefined) makeMove(index, 'O');
+    }
+
+    // Places a mark on the board and checks result
+    function makeMove(index, mark) {
+      tttBoard[index] = mark;
+      renderBoard();
+
+      const winner = checkWinner();
+      if (winner) {
+        endGame(winner);
+        return;
+      }
+      if (tttBoard.every(c => c !== null)) {
+        endGame('draw');
+        return;
+      }
+
+      const next = mark === 'X' ? 'O' : 'X';
+      setStatus(next === 'X' ? 'Your turn (X)' : 'Computer thinking…');
+    }
+
+    // Render board cells from state
+    function renderBoard() {
+      tttBoard.forEach((val, i) => {
+        const cell = document.getElementById('c' + i);
+        cell.textContent = val || '';
+        cell.className = 'ttt-cell' + (val ? ' ' + val.toLowerCase() : '');
+        cell.disabled  = !!val || !tttActive;
+      });
+    }
+
+    // Return winning mark + line, or null
+    function checkWinner() {
+      for (const [a,b,c] of WIN_LINES) {
+        if (tttBoard[a] && tttBoard[a] === tttBoard[b] && tttBoard[a] === tttBoard[c]) {
+          return { mark: tttBoard[a], line: [a,b,c] };
+        }
+      }
+      return null;
+    }
+
+    function endGame(result) {
+      tttActive = false;
+      disableAllCells();
+
+      if (result === 'draw') {
+        scores.draws++;
+        setStatus('🤝 It\'s a draw!');
+      } else if (result.mark === 'X') {
+        scores.player++;
+        highlightWin(result.line);
+        setStatus('🎉 You win!');
+      } else {
+        scores.cpu++;
+        highlightWin(result.line);
+        setStatus('🤖 Computer wins!');
+      }
+
+      updateScoreboard();
+    }
+
+    function highlightWin(line) {
+      line.forEach(i => document.getElementById('c' + i).classList.add('win-cell'));
+    }
+
+    function disableAllCells() {
+      document.querySelectorAll('.ttt-cell').forEach(c => c.disabled = true);
+    }
+
+    function setStatus(msg) {
+      document.getElementById('ttt-status').textContent = msg;
+    }
+
+    function updateScoreboard() {
+      document.getElementById('score-player').textContent = scores.player;
+      document.getElementById('score-draws').textContent  = scores.draws;
+      document.getElementById('score-cpu').textContent    = scores.cpu;
+    }
+
+    function resetTTT() {
+      tttBoard  = Array(9).fill(null);
+      tttActive = true;
+      renderBoard();
+      setStatus('Your turn (X)');
+    }
+
+    /* -------- DIFFICULTY SYSTEM: AI Strategies -------- */
+
+    // Level 1 — Random open square
+    function easyMove() {
+      const open = tttBoard.map((v,i) => v === null ? i : -1).filter(i => i !== -1);
+      return open[Math.floor(Math.random() * open.length)];
+    }
+
+    // Level 2 — Wins if it can, blocks if it must, else random
+    function mediumMove() {
+      // Try to win
+      const win = findThreat('O');
+      if (win !== null) return win;
+      // Try to block player
+      const block = findThreat('X');
+      if (block !== null) return block;
+      // Otherwise random
+      return easyMove();
+    }
+
+    // Find a square where 'mark' already has 2 in a row (return the empty square)
+    function findThreat(mark) {
+      for (const [a,b,c] of WIN_LINES) {
+        const line = [tttBoard[a], tttBoard[b], tttBoard[c]];
+        const marks = line.filter(v => v === mark).length;
+        const empty = line.filter(v => v === null).length;
+        if (marks === 2 && empty === 1) {
+          // Return the empty index
+          if (!tttBoard[a]) return a;
+          if (!tttBoard[b]) return b;
+          return c;
+        }
+      }
+      return null;
+    }
+
+    // Level 3 — Minimax (optimal, unbeatable)
+    function hardMove() {
+      let bestScore = -Infinity;
+      let bestIndex = null;
+
+      tttBoard.forEach((val, i) => {
+        if (val !== null) return;
+        tttBoard[i] = 'O';
+        const score = minimax(tttBoard, 0, false);
+        tttBoard[i] = null;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIndex = i;
+        }
+      });
+
+      return bestIndex;
+    }
+
+    // Minimax: maximising = computer (O), minimising = player (X)
+    function minimax(board, depth, isMaximising) {
+      const winner = checkWinnerOnBoard(board);
+      if (winner === 'O') return  10 - depth;
+      if (winner === 'X') return -10 + depth;
+      if (board.every(c => c !== null)) return 0;
+
+      if (isMaximising) {
+        let best = -Infinity;
+        board.forEach((val, i) => {
+          if (val !== null) return;
+          board[i] = 'O';
+          best = Math.max(best, minimax(board, depth + 1, false));
+          board[i] = null;
+        });
+        return best;
+      } else {
+        let best = Infinity;
+        board.forEach((val, i) => {
+          if (val !== null) return;
+          board[i] = 'X';
+          best = Math.min(best, minimax(board, depth + 1, true));
+          board[i] = null;
+        });
+        return best;
+      }
+    }
+
+    // Pure function: check winner on any board array (used by minimax)
+    function checkWinnerOnBoard(board) {
+      for (const [a,b,c] of WIN_LINES) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+      }
+      return null;
+    }
+
+    /* ============================================================
+       GAME 2 — GUESS THE NUMBER
+       ============================================================ */
+
+    let secretNumber = 0;
+    let guessMax     = 10;
+    let guessCount   = 0;
+    let guessActive  = true;
+
+    function setRange(max) {
+      guessMax = max;
+      document.querySelectorAll('.range-btn').forEach(b => {
+        b.classList.toggle('selected', parseInt(b.dataset.max) === max);
+      });
+      document.getElementById('guess-input').max = max;
+      document.getElementById('guess-range-label').textContent = 'Between 1 and ' + max;
+      resetGuess();
+    }
+
+    function resetGuess() {
+      secretNumber = Math.floor(Math.random() * guessMax) + 1;
+      guessCount   = 0;
+      guessActive  = true;
+
+      document.getElementById('guess-input').value    = '';
+      document.getElementById('guess-input').disabled = false;
+      document.getElementById('guess-status').textContent = 'I\'m thinking of a number…';
+      document.getElementById('guess-status').style.color = '';
+      document.getElementById('guess-feedback').textContent = '';
+      document.getElementById('guess-history').innerHTML = '';
+    }
+
+    function submitGuess() {
+      if (!guessActive) return;
+
+      const input = document.getElementById('guess-input');
+      const val   = parseInt(input.value);
+
+      if (isNaN(val) || val < 1 || val > guessMax) {
+        document.getElementById('guess-feedback').textContent = `Enter a number between 1 and ${guessMax}`;
+        return;
+      }
+
+      guessCount++;
+      input.value = '';
+
+      const history = document.getElementById('guess-history');
+      const tag     = document.createElement('span');
+      tag.textContent = val;
+
+      if (val === secretNumber) {
+        // Correct!
+        tag.className = 'guess-tag correct';
+        history.appendChild(tag);
+        document.getElementById('guess-feedback').textContent  = '✅ Correct!';
+        document.getElementById('guess-status').textContent    = `🎉 You got it in ${guessCount} guess${guessCount === 1 ? '' : 'es'}!`;
+        document.getElementById('guess-status').style.color   = 'var(--win)';
+        input.disabled = true;
+        guessActive    = false;
+
+      } else if (val < secretNumber) {
+        tag.className = 'guess-tag too-low';
+        history.appendChild(tag);
+        document.getElementById('guess-feedback').textContent = '📈 Too low — go higher!';
+        document.getElementById('guess-status').textContent   = `Guess #${guessCount} — keep going!`;
+
+      } else {
+        tag.className = 'guess-tag too-high';
+        history.appendChild(tag);
+        document.getElementById('guess-feedback').textContent = '📉 Too high — go lower!';
+        document.getElementById('guess-status').textContent   = `Guess #${guessCount} — keep going!`;
+      }
+    }
+
+    // Allow pressing Enter in the guess input
+    document.getElementById('guess-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submitGuess();
+    });
+
+    /* ============================================================
+       INIT
+       ============================================================ */
+    resetTTT();
+    resetGuess();
+
+  </script>
+</body>
+</html>
